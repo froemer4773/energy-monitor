@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # MariaDB Datenbank
+  mariadb:
+    image: mariadb:10.11
+    container_name: energy-monitor-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - energy-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Backend API (Node.js/Express)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: energy-monitor-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      PORT: 3000
+    volumes:
+      - ./backend/logs:/app/logs
+    networks:
+      - energy-network
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (Angular with Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: energy-monitor-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - energy-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  energy-network:
+    driver: bridge
+
+volumes:
+  mariadb-data:
+    driver: local

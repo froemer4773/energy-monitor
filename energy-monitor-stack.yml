@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Backend API (Node.js/Express)
+  energy-backend:
+    image: energy-monitor-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: energy-monitor-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST:-mariadb}  # Hostname deiner bestehenden MariaDB
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-energy_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-energy_monitor}
+      PORT: 3000
+    networks:
+      - bridge
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Webserver (Nginx)
+  energy-frontend:
+    image: energy-monitor-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: energy-monitor-frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    volumes:
+      - nginx_data:/usr/share/nginx/html:rw
+    networks:
+      - bridge
+    depends_on:
+      - energy-backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  bridge:
+    driver: bridge
+
+volumes:
+  nginx_data:
+    external: true

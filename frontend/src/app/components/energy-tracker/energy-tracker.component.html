@@ -1,0 +1,368 @@
+<div class="app-container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <svg class="icon-lg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        <h1 class="gradient-text">Energie Monitor</h1>
+      </div>
+      <div class="header-nav">
+        <button 
+          class="nav-btn" 
+          [class.active]="activeView === 'input'"
+          (click)="switchView('input')">
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span class="nav-label">Eingabe</span>
+        </button>
+        <button 
+          class="nav-btn" 
+          [class.active]="activeView === 'dashboard'"
+          (click)="switchView('dashboard')">
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span class="nav-label">Dashboard</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Alerts -->
+    <div *ngIf="errorMessage" class="alert alert-error">
+      {{ errorMessage }}
+    </div>
+    <div *ngIf="successMessage" class="alert alert-success">
+      {{ successMessage }}
+    </div>
+
+    <!-- Loading Spinner -->
+    <div *ngIf="isLoading" class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Input View -->
+    <div *ngIf="activeView === 'input'" class="view-container">
+      <div class="card">
+        <h2 class="card-title">
+          <svg class="icon-md" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          Verbrauchsdaten erfassen
+        </h2>
+
+        <form (ngSubmit)="onSubmit()" #energyForm="ngForm">
+          <!-- Month Selector -->
+          <div class="form-group">
+            <label class="form-label">Monat *</label>
+            <input 
+              type="month" 
+              class="form-input"
+              [(ngModel)]="formData.monat"
+              name="monat"
+              required>
+          </div>
+
+          <div class="form-grid">
+            <!-- Gas -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-orange" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                Gas (kWh)
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                class="form-input"
+                [(ngModel)]="formData.gas_kwh"
+                name="gas_kwh"
+                placeholder="0.00">
+            </div>
+
+            <!-- Wasser -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-blue" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                </svg>
+                Wasser (m³)
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                class="form-input"
+                [(ngModel)]="formData.wasser_m3"
+                name="wasser_m3"
+                placeholder="0.00">
+            </div>
+
+            <!-- Solar -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-yellow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                Solar (kWh)
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                class="form-input"
+                [(ngModel)]="formData.solar_kwh"
+                name="solar_kwh"
+                placeholder="0.00">
+            </div>
+
+            <!-- Impulse -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-purple" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                Impulse
+              </label>
+              <input 
+                type="number"
+                class="form-input"
+                [(ngModel)]="formData.impulse"
+                name="impulse"
+                placeholder="0">
+            </div>
+
+            <!-- Strom 1.8.0 -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-cyan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                Strom 1.8.0 (kWh)
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                class="form-input"
+                [(ngModel)]="formData.strom_180_kwh"
+                name="strom_180_kwh"
+                placeholder="0.00">
+            </div>
+
+            <!-- Strom 2.8.0 -->
+            <div class="form-group">
+              <label class="form-label">
+                <svg class="icon-sm icon-green" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                Strom 2.8.0 (kWh)
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                class="form-input"
+                [(ngModel)]="formData.strom_280_kwh"
+                name="strom_280_kwh"
+                placeholder="0.00">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" [disabled]="!energyForm.valid || isLoading">
+            Daten speichern
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div *ngIf="activeView === 'dashboard'" class="view-container">
+      <!-- Chart Card -->
+      <div class="card">
+        <h2 class="card-title">
+          <svg class="icon-md" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Verbrauchsübersicht (letzte 12 Monate)
+        </h2>
+
+        <div *ngIf="entries.length > 0; else noChartData" class="chart-container">
+          <div class="chart-legend">
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Gas')"
+                 (click)="toggleChartData('Gas')">
+              <span class="legend-color bg-orange"></span> Gas
+            </div>
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Wasser')"
+                 (click)="toggleChartData('Wasser')">
+              <span class="legend-color bg-blue"></span> Wasser
+            </div>
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Solar')"
+                 (click)="toggleChartData('Solar')">
+              <span class="legend-color bg-yellow"></span> Solar
+            </div>
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Strom 1.8.0')"
+                 (click)="toggleChartData('Strom 1.8.0')">
+              <span class="legend-color bg-cyan"></span> Strom 1.8.0
+            </div>
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Strom 2.8.0')"
+                 (click)="toggleChartData('Strom 2.8.0')">
+              <span class="legend-color bg-green"></span> Strom 2.8.0
+            </div>
+            <div class="legend-item" 
+                 [class.inactive]="!isChartDataVisible('Impulse')"
+                 (click)="toggleChartData('Impulse')">
+              <span class="legend-color bg-purple"></span> Impulse
+            </div>
+          </div>
+          
+          <div class="simple-chart">
+            <div *ngFor="let data of chartData" class="chart-bar-group">
+              <div class="chart-label">{{ data.monat }}</div>
+              <div class="chart-bars">
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Gas')">
+                  <div class="chart-bar-value" [title]="data.GasTooltip">{{ data.Gas.toFixed(0) }}</div>
+                  <div class="chart-bar bg-orange" [style.height.px]="Math.abs(data.Gas) / 10" [title]="data.GasTooltip"></div>
+                </div>
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Wasser')">
+                  <div class="chart-bar-value" [title]="data.WasserTooltip">{{ data.Wasser.toFixed(1) }}</div>
+                  <div class="chart-bar bg-blue" [style.height.px]="Math.abs(data.Wasser) * 10" [title]="data.WasserTooltip"></div>
+                </div>
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Solar')">
+                  <div class="chart-bar-value" [title]="data.SolarTooltip">{{ data.Solar.toFixed(0) }}</div>
+                  <div class="chart-bar bg-yellow" [style.height.px]="Math.abs(data.Solar) / 5" [title]="data.SolarTooltip"></div>
+                </div>
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Strom 1.8.0')">
+                  <div class="chart-bar-value" [title]="data.Strom180Tooltip">{{ data['Strom 1.8.0'].toFixed(0) }}</div>
+                  <div class="chart-bar bg-cyan" [style.height.px]="Math.abs(data['Strom 1.8.0']) / 5" [title]="data.Strom180Tooltip"></div>
+                </div>
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Strom 2.8.0')">
+                  <div class="chart-bar-value" [title]="data.Strom280Tooltip">{{ data['Strom 2.8.0'].toFixed(0) }}</div>
+                  <div class="chart-bar bg-green" [style.height.px]="Math.abs(data['Strom 2.8.0']) / 5" [title]="data.Strom280Tooltip"></div>
+                </div>
+                <div class="chart-bar-wrapper" *ngIf="isChartDataVisible('Impulse')">
+                  <div class="chart-bar-value" [title]="data.ImpulseTooltip">{{ data.Impulse }}</div>
+                  <div class="chart-bar bg-purple" [style.height.px]="Math.abs(data.Impulse) / 10" [title]="data.ImpulseTooltip"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #noChartData>
+          <div class="empty-state">
+            <svg class="icon-xl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <p>Keine Daten vorhanden. Bitte erfassen Sie zuerst Verbrauchsdaten.</p>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Table Card -->
+      <div class="card">
+        <h2 class="card-title">
+          <svg class="icon-md" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          Detaillierte Übersicht
+        </h2>
+
+        <div *ngIf="entries.length > 0; else noTableData" class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Monat</th>
+                <th class="text-right">Gas (kWh)</th>
+                <th class="text-right">Wasser (m³)</th>
+                <th class="text-right">Solar (kWh)</th>
+                <th class="text-right">Impulse</th>
+                <th class="text-right">Strom 1.8.0</th>
+                <th class="text-right">Strom 2.8.0</th>
+                <th class="text-center">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let entry of entries.slice(0, 12)" class="table-row">
+                <td>{{ getMonthName(entry.monat) }}</td>
+                <td class="text-right text-orange" [title]="getTooltipForDifference(entry, 'gas_kwh', 'kWh')">
+                  {{ getMonthDifference(entry, 'gas_kwh').toFixed(2) }}
+                </td>
+                <td class="text-right text-blue" [title]="getTooltipForDifference(entry, 'wasser_m3', 'm³')">
+                  {{ getMonthDifference(entry, 'wasser_m3').toFixed(2) }}
+                </td>
+                <td class="text-right text-yellow" [title]="getTooltipForDifference(entry, 'solar_kwh', 'kWh')">
+                  {{ getMonthDifference(entry, 'solar_kwh').toFixed(2) }}
+                </td>
+                <td class="text-right text-purple" [title]="getTooltipForDifference(entry, 'impulse', '')">
+                  {{ getMonthDifference(entry, 'impulse') }}
+                </td>
+                <td class="text-right text-cyan" [title]="getTooltipForDifference(entry, 'strom_180_kwh', 'kWh')">
+                  {{ getMonthDifference(entry, 'strom_180_kwh').toFixed(2) }}
+                </td>
+                <td class="text-right text-green" [title]="getTooltipForDifference(entry, 'strom_280_kwh', 'kWh')">
+                  {{ getMonthDifference(entry, 'strom_280_kwh').toFixed(2) }}
+                </td>
+                <td class="text-center">
+                  <button 
+                    class="btn-delete" 
+                    (click)="deleteEntry(entry.monat)"
+                    title="Löschen">
+                    <svg class="icon-sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noTableData>
+          <div class="empty-state">
+            <svg class="icon-xl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <p>Keine Daten vorhanden.</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </main>
+</div>
