@@ -1,7 +1,9 @@
-// server.js - Docker-optimierte Version
+// server.js - Node.js/Express Backend mit MariaDB
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const fs = require('fs').promises;
+const path = require('path');
 
 const app = express();
 
@@ -9,53 +11,55 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Datenbank-Konfiguration aus Umgebungsvariablen
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'energy_user',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'energy_monitor',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+// Config laden
+let dbConfig;
+const loadConfig = async () => {
+  try {
+    const configPath = path.join(__dirname, 'config.json');
+    const configData = await fs.readFile(configPath, 'utf8');
+    dbConfig = JSON.parse(configData).database;
+  } catch (error) {
+    console.error('Fehler beim Laden der Config:', error);
+    process.exit(1);
+  }
 };
-
-console.log('📊 Verbinde zur Datenbank:', dbConfig.host);
 
 // Connection Pool
 let pool;
-
 const initDatabase = async () => {
+  pool = mysql.createPool({
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    database: dbConfig.database,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  });
+
+  // Tabelle erstellen falls nicht vorhanden
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS energy_data (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      monat VARCHAR(7) NOT NULL UNIQUE,
+      gas_kwh DECIMAL(10,2) DEFAULT 0,
+      wasser_m3 DECIMAL(10,2) DEFAULT 0,
+      solar_kwh DECIMAL(10,2) DEFAULT 0,
+      impulse INT DEFAULT 0,
+      strom_180_kwh DECIMAL(10,2) DEFAULT 0,
+      strom_280_kwh DECIMAL(10,2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_monat (monat)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `;
+
   try {
-    pool = mysql.createPool(dbConfig);
-    
-    // Verbindung testen
-    const connection = await pool.getConnection();
-    console.log('✓ Datenbank-Verbindung erfolgreich');
-    connection.release();
-
-    // Tabelle erstellen falls nicht vorhanden
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS energy_data (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        monat VARCHAR(7) NOT NULL UNIQUE,
-        gas_kwh DECIMAL(10,2) DEFAULT 0,
-        wasser_m3 DECIMAL(10,2) DEFAULT 0,
-        solar_kwh DECIMAL(10,2) DEFAULT 0,
-        impulse INT DEFAULT 0,
-        strom_180_kwh DECIMAL(10,2) DEFAULT 0,
-        strom_280_kwh DECIMAL(10,2) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_monat (monat)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `;
-
     await pool.query(createTableQuery);
     console.log('✓ Datenbank-Tabelle bereit');
   } catch (error) {
-    console.error('❌ Datenbankfehler:', error);
+    console.error('Fehler beim Erstellen der Tabelle:', error);
     throw error;
   }
 };
@@ -69,6 +73,7 @@ app.get('/api/energy', async (req, res) => {
       'SELECT * FROM energy_data ORDER BY monat DESC LIMIT 12'
     );
     
+    // Konvertiere DECIMAL zu Number für JSON
     const data = rows.map(row => ({
       ...row,
       gas_kwh: parseFloat(row.gas_kwh),
@@ -98,6 +103,7 @@ app.get('/api/energy/:monat', async (req, res) => {
       return res.status(404).json({ error: 'Monat nicht gefunden' });
     }
     
+    // Konvertiere DECIMAL zu Number
     const data = {
       ...rows[0],
       gas_kwh: parseFloat(rows[0].gas_kwh),
@@ -127,6 +133,7 @@ app.post('/api/energy', async (req, res) => {
     strom_280_kwh
   } = req.body;
 
+  // Validierung
   if (!monat || !/^\d{4}-\d{2}$/.test(monat)) {
     return res.status(400).json({ error: 'Ungültiges Monatsformat (YYYY-MM)' });
   }
@@ -221,11 +228,7 @@ app.delete('/api/energy/:monat', async (req, res) => {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    database: pool ? 'connected' : 'disconnected'
-  });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Server starten
@@ -233,14 +236,15 @@ const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
+    await loadConfig();
     await initDatabase();
     
-    app.listen(PORT, '0.0.0.0', () => {
+    app.listen(PORT, () => {
       console.log(`✓ Server läuft auf Port ${PORT}`);
-      console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✓ API verfügbar unter http://localhost:${PORT}/api/energy`);
     });
   } catch (error) {
-    console.error('❌ Fehler beim Starten des Servers:', error);
+    console.error('Fehler beim Starten des Servers:', error);
     process.exit(1);
   }
 };
@@ -250,16 +254,6 @@ startServer();
 // Graceful Shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM empfangen, schließe Verbindungen...');
-  if (pool) {
-    await pool.end();
-  }
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('SIGINT empfangen, schließe Verbindungen...');
-  if (pool) {
-    await pool.end();
-  }
+  await pool.end();
   process.exit(0);
 });
