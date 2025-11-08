@@ -1,450 +1,445 @@
-# Energie Monitor - Docker Deployment Anleitung
+# Energie Monitor - Installations- und Deployment-Anleitung
 
-## 📋 Voraussetzungen
+## 📋 Übersicht
 
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- Mind. 2GB RAM verfügbar
-- Port 8080 verfügbar (oder anpassen)
+Diese Anleitung führt Sie durch die komplette Installation der Energie-Monitor-Anwendung mit Angular 20 Frontend, Node.js Backend und MariaDB Datenbank.
 
 ---
 
-## 🏗️ Projekt-Struktur
+## 🔧 Voraussetzungen
 
-```
-energy-monitor/
-├── docker-compose.yml
-├── .env
-├── init-db.sql
-├── backend/
-│   ├── Dockerfile
-│   ├── server.js
-│   ├── package.json
-│   └── package-lock.json
-└── frontend/
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── package.json
-    ├── angular.json
-    └── src/
-        └── ... (Angular App)
-```
+### Software installieren:
+- **Node.js** (Version 18 oder höher) - [Download](https://nodejs.org/)
+- **MariaDB** (Version 10.5 oder höher) - [Download](https://mariadb.org/download/)
+- **Angular CLI** (Version 20) - Installation siehe unten
+- **Git** (optional) - [Download](https://git-scm.com/)
 
 ---
 
-## 🚀 Deployment Schritte
+## 📦 Installation
 
-### Schritt 1: Projekt vorbereiten
-
-```bash
-# Projekt-Verzeichnis erstellen
-mkdir -p energy-monitor
-cd energy-monitor
-
-# Unterverzeichnisse erstellen
-mkdir -p backend frontend
-```
-
-### Schritt 2: Dateien kopieren
-
-Kopiere folgende Dateien in die entsprechenden Ordner:
-
-#### **Root-Verzeichnis:**
-- `docker-compose.yml`
-- `.env`
-- `init-db.sql`
-
-#### **backend/**
-- `Dockerfile`
-- `server.js` (Docker-optimierte Version)
-- `package.json`
-
-#### **frontend/**
-- `Dockerfile`
-- `nginx.conf`
-- Komplette Angular App (src/, package.json, angular.json, etc.)
-
-### Schritt 3: .env anpassen
+### 1. MariaDB einrichten
 
 ```bash
-nano .env
+# MariaDB starten (Linux/Mac)
+sudo systemctl start mariadb
+
+# MariaDB starten (Windows - im MariaDB Terminal)
+net start MariaDB
+
+# MariaDB Root-Login
+mysql -u root -p
 ```
 
-Passe die Passwörter an:
-```env
-DB_ROOT_PASSWORD=IhrSicheresRootPasswort123!
-DB_PASSWORD=IhrSicheresUserPasswort456!
-FRONTEND_PORT=8080
-```
+### 2. Backend einrichten
 
-### Schritt 4: Backend package.json
+```bash
+# Neues Verzeichnis erstellen
+mkdir energy-monitor-backend
+cd energy-monitor-backend
 
-Erstelle `backend/package.json`:
-```json
+# Dateien erstellen
+# Kopieren Sie die folgenden Dateien in dieses Verzeichnis:
+# - server.js
+# - config.json
+# - package.json
+# - setup-database.js
+
+# Dependencies installieren
+npm install
+
+# config.json anpassen
+# Öffnen Sie config.json und passen Sie die Datenbankzugangsdaten an:
 {
-  "name": "energy-monitor-backend",
-  "version": "1.0.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.5",
-    "cors": "^2.8.5"
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "energy_user",
+    "password": "IhrSicheresPasswort123!",
+    "database": "energy_monitor"
+  }
+}
+
+# setup-database.js anpassen
+# Öffnen Sie setup-database.js und setzen Sie Ihr MariaDB Root-Passwort
+# Zeile 17: password: 'IhrRootPasswort'
+
+# Datenbank initialisieren
+npm run setup-db
+
+# Server starten
+npm start
+```
+
+Der Backend-Server läuft jetzt auf **http://localhost:3000**
+
+### 3. Angular Frontend einrichten
+
+```bash
+# In ein neues Verzeichnis wechseln
+cd ..
+mkdir energy-monitor-frontend
+cd energy-monitor-frontend
+
+# Angular CLI installieren (falls noch nicht vorhanden)
+npm install -g @angular/cli@20
+
+# Neue Angular App erstellen
+ng new energy-app --routing --style=css
+
+# In das App-Verzeichnis wechseln
+cd energy-app
+
+# Dependencies installieren
+npm install recharts lucide-react
+
+# API Service erstellen
+ng generate service services/energy
+
+# Component erstellen
+ng generate component components/energy-tracker
+```
+
+Nun müssen Sie den Code des Frontends einfügen:
+
+#### **src/app/services/energy.service.ts**
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface EnergyData {
+  id?: number;
+  monat: string;
+  gas_kwh: number;
+  wasser_m3: number;
+  solar_kwh: number;
+  impulse: number;
+  strom_180_kwh: number;
+  strom_280_kwh: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class EnergyService {
+  private apiUrl = 'http://localhost:3000/api/energy';
+
+  constructor(private http: HttpClient) { }
+
+  getAll(): Observable<EnergyData[]> {
+    return this.http.get<EnergyData[]>(this.apiUrl);
+  }
+
+  getByMonth(monat: string): Observable<EnergyData> {
+    return this.http.get<EnergyData>(`${this.apiUrl}/${monat}`);
+  }
+
+  create(data: EnergyData): Observable<any> {
+    return this.http.post(this.apiUrl, data);
+  }
+
+  update(monat: string, data: EnergyData): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${monat}`, data);
+  }
+
+  delete(monat: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/${monat}`);
   }
 }
 ```
 
-### Schritt 5: Build und Start
+#### **src/app/app.module.ts** (falls Angular ohne Standalone Components)
+```typescript
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { EnergyTrackerComponent } from './components/energy-tracker/energy-tracker.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EnergyTrackerComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    HttpClientModule,
+    FormsModule,
+    ReactiveFormsModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+```
+
+#### **proxy.conf.json** erstellen (für CORS während der Entwicklung)
+```json
+{
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
+```
+
+#### **angular.json** anpassen
+Fügen Sie in der serve-Konfiguration hinzu:
+```json
+"serve": {
+  "options": {
+    "proxyConfig": "proxy.conf.json"
+  }
+}
+```
+
+### 4. App starten
 
 ```bash
-# Images bauen
-docker-compose build
+# Backend (Terminal 1)
+cd energy-monitor-backend
+npm start
 
-# Container starten
-docker-compose up -d
+# Frontend (Terminal 2)
+cd energy-monitor-frontend/energy-app
+ng serve
+
+# App öffnen im Browser
+http://localhost:4200
+```
+
+---
+
+## 🚀 Production Deployment
+
+### Backend (Node.js)
+
+```bash
+# PM2 installieren (Process Manager)
+npm install -g pm2
+
+# App mit PM2 starten
+pm2 start server.js --name energy-api
+
+# PM2 beim Systemstart aktivieren
+pm2 startup
+pm2 save
 
 # Logs anzeigen
-docker-compose logs -f
+pm2 logs energy-api
 ```
 
-### Schritt 6: Überprüfung
+### Frontend (Angular)
 
 ```bash
-# Container Status
-docker-compose ps
+# Production Build erstellen
+ng build --configuration production
 
-# Sollte zeigen:
-# energy-monitor-db         Up (healthy)
-# energy-monitor-backend    Up (healthy)
-# energy-monitor-frontend   Up (healthy)
-
-# Backend testen
-curl http://localhost:8080/api/energy
-
-# Frontend öffnen
-# http://localhost:8080
+# Dateien aus dist/energy-app nach /var/www/html kopieren
+# oder mit einem Webserver wie Nginx/Apache bereitstellen
 ```
 
----
+### Nginx Konfiguration (Beispiel)
 
-## 🔧 Verwaltungsbefehle
+```nginx
+# /etc/nginx/sites-available/energy-monitor
+server {
+    listen 80;
+    server_name ihre-domain.de;
 
-### Container Management
+    # Frontend
+    root /var/www/energy-monitor;
+    index index.html;
 
-```bash
-# Starten
-docker-compose up -d
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
 
-# Stoppen
-docker-compose stop
-
-# Neu starten
-docker-compose restart
-
-# Stoppen und entfernen
-docker-compose down
-
-# Mit Volumes entfernen (ACHTUNG: Datenverlust!)
-docker-compose down -v
-```
-
-### Logs
-
-```bash
-# Alle Logs
-docker-compose logs -f
-
-# Nur Backend
-docker-compose logs -f backend
-
-# Nur Datenbank
-docker-compose logs -f mariadb
-
-# Letzte 50 Zeilen
-docker-compose logs --tail=50
-```
-
-### Updates durchführen
-
-```bash
-# 1. Code aktualisieren
-git pull  # oder Dateien manuell aktualisieren
-
-# 2. Neu bauen
-docker-compose build --no-cache
-
-# 3. Container neu starten
-docker-compose up -d
-
-# 4. Alte Images aufräumen
-docker image prune -f
-```
-
----
-
-## 🗄️ Datenbank-Management
-
-### Datenbank-Zugriff
-
-```bash
-# MySQL Shell öffnen
-docker-compose exec mariadb mysql -u root -p
-
-# Mit User-Account
-docker-compose exec mariadb mysql -u energy_user -p energy_monitor
-```
-
-### Backup erstellen
-
-```bash
-# Backup erstellen
-docker-compose exec mariadb mysqldump -u root -p energy_monitor > backup_$(date +%Y%m%d).sql
-
-# Backup mit Compression
-docker-compose exec mariadb mysqldump -u root -p energy_monitor | gzip > backup_$(date +%Y%m%d).sql.gz
-```
-
-### Backup wiederherstellen
-
-```bash
-# SQL-Datei
-docker-compose exec -T mariadb mysql -u root -p energy_monitor < backup.sql
-
-# Komprimierte Datei
-gunzip < backup.sql.gz | docker-compose exec -T mariadb mysql -u root -p energy_monitor
+    # Backend API Proxy
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
 ```
 
 ---
 
 ## 🔒 Sicherheit
 
-### SSL/TLS mit Traefik (Empfohlen)
-
-Wenn du bereits Traefik verwendest, füge diese Labels zu `docker-compose.yml` hinzu:
-
-```yaml
-frontend:
-  labels:
-    - "traefik.enable=true"
-    - "traefik.http.routers.energy-monitor.rule=Host(`energy.yourdomain.com`)"
-    - "traefik.http.routers.energy-monitor.entrypoints=websecure"
-    - "traefik.http.routers.energy-monitor.tls.certresolver=letsencrypt"
-    - "traefik.http.services.energy-monitor.loadbalancer.server.port=80"
-  networks:
-    - traefik-network
-    - energy-network
-
-networks:
-  traefik-network:
-    external: true
+### MariaDB absichern
+```bash
+mysql_secure_installation
 ```
 
-### SSL/TLS mit Nginx Proxy Manager
-
-Konfiguriere einen Proxy Host:
-- Domain: `energy.yourdomain.com`
-- Forward Hostname: `energy-monitor-frontend`
-- Forward Port: `80`
-- SSL: Let's Encrypt aktivieren
-
-### Firewall-Regeln
-
+### Firewall konfigurieren
 ```bash
-# Port nur für localhost (wenn Reverse Proxy verwendet)
-sudo ufw allow from 127.0.0.1 to any port 8080
+# Port 3000 (Backend) nur für localhost
+sudo ufw allow from 127.0.0.1 to any port 3000
 
-# Oder für alle (ohne Reverse Proxy)
-sudo ufw allow 8080/tcp
+# Port 80/443 für Webserver
+sudo ufw allow 80
+sudo ufw allow 443
+```
+
+### Umgebungsvariablen nutzen
+Erstellen Sie eine `.env` Datei für sensible Daten:
+```bash
+DB_HOST=localhost
+DB_USER=energy_user
+DB_PASSWORD=IhrSicheresPasswort
+DB_NAME=energy_monitor
 ```
 
 ---
 
-## 📊 Monitoring
+## 🐳 Docker Deployment (Optional)
 
-### Health Checks
+### docker-compose.yml
+```yaml
+version: '3.8'
 
-```bash
-# Manueller Health Check
-curl http://localhost:8080/api/health
+services:
+  mariadb:
+    image: mariadb:10.11
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: energy_monitor
+      MYSQL_USER: energy_user
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
 
-# Docker Health Status
-docker inspect --format='{{.State.Health.Status}}' energy-monitor-backend
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mariadb
+    environment:
+      DB_HOST: mariadb
+      DB_USER: energy_user
+      DB_PASSWORD: userpassword
+      DB_NAME: energy_monitor
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mariadb_data:
 ```
 
-### Resource Usage
-
+Starten mit:
 ```bash
-# Container Stats
-docker stats
-
-# Nur Energy Monitor
-docker stats energy-monitor-frontend energy-monitor-backend energy-monitor-db
+docker-compose up -d
 ```
 
-### Logs rotieren
+---
 
-Erstelle `/etc/docker/daemon.json`:
+## 📱 Mobile App (Optional)
+
+Die App ist bereits responsive. Für native Apps:
+
+### PWA (Progressive Web App)
+```bash
+ng add @angular/pwa
+ng build --configuration production
+```
+
+### Ionic (Native Mobile)
+```bash
+npm install -g @ionic/cli
+ionic start energy-monitor blank --type=angular
+# Angular Components in Ionic integrieren
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### Backend startet nicht
+- Überprüfen Sie die MariaDB-Verbindung
+- Prüfen Sie die config.json
+- Logs: `npm start` oder `pm2 logs`
+
+### Frontend kann Backend nicht erreichen
+- CORS-Einstellungen im Backend überprüfen
+- proxy.conf.json korrekt konfiguriert?
+- Backend läuft auf Port 3000?
+
+### Datenbankfehler
+```bash
+# MariaDB Status prüfen
+sudo systemctl status mariadb
+
+# Logs prüfen
+sudo tail -f /var/log/mysql/error.log
+```
+
+---
+
+## 📚 API Dokumentation
+
+### Endpoints
+
+**GET** `/api/energy`
+- Gibt alle Einträge zurück (max. 12 Monate)
+
+**GET** `/api/energy/:monat`
+- Gibt einen spezifischen Monat zurück (Format: YYYY-MM)
+
+**POST** `/api/energy`
 ```json
 {
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
+  "monat": "2024-10",
+  "gas_kwh": 450.5,
+  "wasser_m3": 8.2,
+  "solar_kwh": 210.3,
+  "impulse": 1234,
+  "strom_180_kwh": 320.1,
+  "strom_280_kwh": 180.5
 }
 ```
 
-Dann Docker neu starten:
-```bash
-sudo systemctl restart docker
-```
+**PUT** `/api/energy/:monat`
+- Aktualisiert einen Eintrag
 
----
-
-## 🔄 Automatische Updates (Watchtower)
-
-```yaml
-# In docker-compose.yml hinzufügen
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 86400 energy-monitor-frontend energy-monitor-backend
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Problem: Container startet nicht
-
-```bash
-# Logs prüfen
-docker-compose logs
-
-# Container Status
-docker-compose ps
-
-# Einzelnen Container prüfen
-docker logs energy-monitor-backend
-```
-
-### Problem: Datenbank nicht erreichbar
-
-```bash
-# Datenbank-Container prüfen
-docker-compose exec mariadb mysql -u root -p -e "SELECT 1"
-
-# Netzwerk prüfen
-docker network inspect energy-monitor_energy-network
-```
-
-### Problem: Frontend zeigt Fehler
-
-```bash
-# Nginx-Konfiguration testen
-docker-compose exec frontend nginx -t
-
-# Nginx neu laden
-docker-compose exec frontend nginx -s reload
-```
-
-### Problem: Backend API nicht erreichbar
-
-```bash
-# Health Check
-curl http://localhost:8080/api/health
-
-# Backend direkt testen (innerhalb Docker)
-docker-compose exec frontend wget -O- http://backend:3000/api/energy
-```
-
-### Port bereits belegt
-
-```bash
-# Ändere FRONTEND_PORT in .env
-FRONTEND_PORT=8081
-
-# Oder finde den Prozess
-sudo lsof -i :8080
-```
-
----
-
-## 📈 Performance-Optimierung
-
-### MariaDB Tuning
-
-Erstelle `mariadb/my.cnf`:
-```ini
-[mysqld]
-innodb_buffer_pool_size = 256M
-max_connections = 50
-query_cache_type = 1
-query_cache_size = 32M
-```
-
-Mounte in docker-compose.yml:
-```yaml
-volumes:
-  - ./mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
-```
-
-### Nginx Caching
-
-Bereits in `nginx.conf` konfiguriert mit:
-- Gzip Kompression
-- Browser Caching für statische Assets
-- Optimierte Proxy-Settings
-
----
-
-## 🔐 Backup-Strategie
-
-### Automatisches Backup-Script
-
-Erstelle `backup.sh`:
-```bash
-#!/bin/bash
-BACKUP_DIR="/path/to/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-# Datenbank-Backup
-docker-compose exec -T mariadb mysqldump -u root -p$DB_ROOT_PASSWORD energy_monitor | \
-  gzip > "$BACKUP_DIR/db_backup_$DATE.sql.gz"
-
-# Alte Backups löschen (älter als 30 Tage)
-find "$BACKUP_DIR" -name "db_backup_*.sql.gz" -mtime +30 -delete
-
-echo "Backup completed: db_backup_$DATE.sql.gz"
-```
-
-Cronjob einrichten:
-```bash
-# Täglich um 2 Uhr
-0 2 * * * /path/to/backup.sh >> /var/log/energy-monitor-backup.log 2>&1
-```
+**DELETE** `/api/energy/:monat`
+- Löscht einen Eintrag
 
 ---
 
 ## 📞 Support
 
-Bei Problemen:
-1. Logs prüfen: `docker-compose logs`
-2. Health Checks testen
-3. Netzwerk überprüfen
-4. Volumes überprüfen
+Bei Fragen oder Problemen:
+1. Überprüfen Sie die Logs
+2. Testen Sie die API mit Postman/curl
+3. Prüfen Sie die Browser-Console (F12)
 
 ---
 
-## 🎉 Fertig!
+## 📄 Lizenz
 
-Die App ist jetzt verfügbar unter:
-**http://your-server-ip:8080**
+MIT License - Freie Verwendung für private und kommerzielle Projekte.
 
-Oder mit Domain:
-**https://energy.yourdomain.com**
+---
+
+Viel Erfolg mit Ihrer Energie-Monitor-App! 🚀
