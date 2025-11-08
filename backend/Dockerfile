@@ -1,5 +1,5 @@
 # Backend Dockerfile
-FROM node:18-alpine
+FROM node:node:latest
 
 # Arbeitsverzeichnis erstellen
 WORKDIR /app

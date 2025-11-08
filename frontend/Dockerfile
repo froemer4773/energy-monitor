@@ -1,7 +1,7 @@
 # Multi-stage Build für Angular App
 
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:node:latest AS builder
 
 WORKDIR /app
 
