@@ -16,7 +16,7 @@ services:
       DB_USER: ${DB_USER:-energy_user}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-energy_monitor}
-      PORT: 3000
+      PORT: 3003
     networks:
       - bridge
     healthcheck:
