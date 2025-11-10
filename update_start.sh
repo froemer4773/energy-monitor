@@ -14,6 +14,7 @@ docker build -t energy-monitor-frontend:latest ./frontend
 docker image prune -f
 
 # Neu starten
-./start.sh
+# ./start.sh
+docker stack deploy -c energy-monitor-stack.yml energy-monitor
 
 echo "? Update abgeschlossen!"
