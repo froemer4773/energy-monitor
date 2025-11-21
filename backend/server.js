@@ -9,7 +9,7 @@ app.use(express.json());
 
 // Datenbank-Konfiguration direkt aus Umgebungsvariablen
 const dbConfig = {
-  host: process.env.DB_HOST || '10.55.10.9',
+  host: process.env.DB_HOST || '10.xx.xx.xx',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'energy-app',
   password: process.env.DB_PASSWORD || 'energy-app',
